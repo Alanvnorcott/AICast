@@ -13,22 +13,14 @@ def simulate(tribes):
     for generation in range(generations):
         print(f"\nGeneration {generation + 1}")
 
-        # Check if there are no tribes left
-        if len(tribes) == 0:
-            print("No tribes left. Simulation ends.")
-            break
-
-        # Check if there is only one surviving tribe
-        if len(tribes) == 1:
-            print(f"{tribes[0].name} is the last surviving tribe. Simulation continues with the lone tribe.")
-
+        # Main tribes perform actions, reproduce, and break off
         for i, tribe in enumerate(tribes):
             other_tribe = random.choice(tribes[:i] + tribes[i + 1:]) if len(tribes) > 1 else None
             tribe.perform_actions(other_tribe)
             tribe.reproduce()
-            tribe.break_off()
+            # tribe.breakoff()
 
-        # Interactions between tribes
+        # Interactions between all tribes
         for i in range(len(tribes)):
             for j in range(i + 1, len(tribes)):
                 tribes[i].interact(tribes[j])
@@ -49,6 +41,16 @@ def simulate(tribes):
             print(f"Population: {tribe.population}")
             print(f"Resources: {tribe.resources}")
             print(f"Happiness: {tribe.happiness}")
+
+        # Check if there are no tribes left
+        if len(tribes) == 0:
+            print("No tribes left. Simulation ends.")
+            break
+
+        # Check if there is only one surviving tribe
+        if len(tribes) == 1:
+            print(f"{tribes[0].name} is the last surviving tribe. Simulation ends.")
+            break
 
         # Introduce a 1-second delay between turns
         time.sleep(4)
