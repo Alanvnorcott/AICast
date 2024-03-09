@@ -1,14 +1,14 @@
 # simulate.py
 
 import random
-from tribe import create_tribes, initialize_tribes
+from tribe import Tribe
 import time
 
 def simulate(tribes):
     generations = 50  # Number of generations to simulate
 
     # Initialize tribes
-    initialize_tribes(tribes)
+    Tribe.initialize_tribes(tribes)
 
     for generation in range(generations):
         print(f"\nGeneration {generation + 1}")
@@ -55,8 +55,8 @@ def simulate(tribes):
         # Introduce a 1-second delay between turns
         time.sleep(4)
 
-# Create tribes
-initial_tribes = create_tribes(4)
+# Create and initialize tribes using the shared function
+initial_tribes = Tribe.create_and_initialize_tribes(4)
 
 # Simulate
 simulate(initial_tribes)

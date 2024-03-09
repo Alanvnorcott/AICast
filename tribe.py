@@ -7,8 +7,8 @@ class Tribe:
     def __init__(self, traits, name):
         self.traits = traits
         self.name = name
-        self.population = 2  # Initial population size
-        self.resources = 5000  # Initial resource amount
+        self.population = 100  # Initial population size
+        self.resources = 500  # Initial resource amount
         self.turns_without_enough_resources = 0  # Tracks consecutive turns without enough resources
         self.happiness = 100  # Initial happiness value (between 0 and 100)
 
@@ -22,6 +22,22 @@ class Tribe:
         self.relationship_score = 5  # Initial relationship score, between 1 and 10
         TraitsHandler.apply_trait_multipliers(self)
 
+    @staticmethod
+    def create_and_initialize_tribes(num_tribes):
+        traits_list = ["Health Buff", "Damage Buff", "Resourceful", "Aggressive", "Nomadic", "Cooperative", "Cautious"]
+        tribes = []
+        for i in range(num_tribes):
+            traits = random.sample(traits_list, 2)
+            name = f"Tribe {chr(ord('A') + i)}"
+            tribe = Tribe(traits, name)
+            tribes.append(tribe)
+        Tribe.initialize_tribes(tribes)  # Call the initialize_tribes function within the Tribe class
+        return tribes
+
+    @staticmethod
+    def initialize_tribes(tribes):
+        for tribe in tribes:
+            print(f"Initialized {tribe.name} with traits {tribe.traits}")
     @staticmethod
     def apply_trait_multipliers(tribe):
         for trait in tribe.traits:
@@ -59,15 +75,12 @@ class Tribe:
 
         return sub_tribe
 
-    def perform_actions(self, other_tribe):
+    def perform_actions(self, other_tribe, ai_decision):
         # Adjust weights based on conditions
-        attack_weight = 0.3
-        collect_weight = 0.4
-        pass_weight = 0.3
-
-        if self.resources < self.population * 3:
-            # Increase the weight for collecting resources when resources are low
-            collect_weight += 0.2
+        # Define weights based on AI decision probabilities
+        attack_weight = ai_decision["attack"]
+        collect_weight = ai_decision["collect"]
+        pass_weight = ai_decision["pass"]
 
         action = random.choices(["Attack", "Collect", "Pass"], weights=[attack_weight, collect_weight, pass_weight])[0]
 
