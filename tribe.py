@@ -76,11 +76,10 @@ class Tribe:
         return sub_tribe
 
     def perform_actions(self, other_tribe, ai_decision):
-        # Adjust weights based on conditions
-        # Define weights based on AI decision probabilities
-        attack_weight = ai_decision["attack"]
-        collect_weight = ai_decision["collect"]
-        pass_weight = ai_decision["pass"]
+        # Check if the "attack" key is present in ai_decision
+        attack_weight = ai_decision.get("attack", 0.0)
+        collect_weight = ai_decision.get("collect", 0.0)
+        pass_weight = ai_decision.get("pass", 0.0)
 
         action = random.choices(["Attack", "Collect", "Pass"], weights=[attack_weight, collect_weight, pass_weight])[0]
 

@@ -26,24 +26,29 @@ class TribeEnvironment(py_environment.PyEnvironment):
         self._reset()
 
     def perform_ai_action(self, action):
-        # Perform actions based on the AI agent's decision
-        # Example: Assuming action is an integer representing the chosen action
-        ai_decision = {"attack": 0.3, "collect": 0.5, "pass": 0.2}  # Replace with actual decision probabilities
-        self._tribe.perform_actions(other_tribe=None, ai_decision=ai_decision)
+        # Convert the 0-dimensional NumPy array to a scalar value
+        chosen_action_key = int(np.squeeze(action))
+
+        actions_mapping = {0: "attack", 1: "collect", 2: "pass"}  # Map action indices to keys
+        chosen_action_key = actions_mapping.get(chosen_action_key, "pass")  # Default to "pass" if not found
+
+        ai_decision = {chosen_action_key: 1.0}  # Replace with actual decision probabilities
+
+        self._current_tribe.perform_actions(other_tribe=None, ai_decision=ai_decision)
 
     def _reset(self):
         # Reset the environment to its initial state
         # Initialize any variables or state needed for a new episode
         # Return the initial time step
         self._episode_ended = False
-        # Your reset logic here
 
         # Choose a random tribe for the current episode
         self._current_tribe = np.random.choice(self._tribes)
 
         # Example: Assuming your initial observation is the tribe's population, resources, and happiness
         initial_observation = np.array(
-            [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness])
+            [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
+            dtype=np.float32)
         return ts.restart(initial_observation)
 
     def _step(self, action):
@@ -72,12 +77,14 @@ class TribeEnvironment(py_environment.PyEnvironment):
             self._episode_ended = True
             # Example: Assuming your final observation is the tribe's population, resources, and happiness
             final_observation = np.array(
-                [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness])
+                [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
+                dtype=np.float32)
             return ts.termination(final_observation, reward)
         else:
             # Example: Assuming your new observation is the updated tribe's population, resources, and happiness
             new_observation = np.array(
-                [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness])
+                [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
+                dtype=np.float32)
             return ts.transition(new_observation, reward)
 
     def action_spec(self):
@@ -93,12 +100,32 @@ class TribeEnvironment(py_environment.PyEnvironment):
         return self._episode_ended
 
     def _calculate_reward(self):
-        # Implement your reward calculation logic based on the tribe's state and action
-        # Example: Reward based on the tribe's happiness
-        reward = self._tribe.happiness / 100.0  # Normalize to a range of [0, 1]
-        return reward
+        # Check if the list of tribes is not empty
+        if self._tribes:
+            # Choose a random tribe from the list (you may need to adjust this based on your logic)
+            current_tribe = np.random.choice(self._tribes)
+
+            # Implement your reward calculation logic based on the tribe's state and action
+            # Example: Reward based on the tribe's happiness
+            reward = current_tribe.happiness / 100.0  # Normalize to a range of [0, 1]
+
+            # Ensure that the reward is of dtype float32
+            reward = np.float32(reward)
+            return reward
+        else:
+            # Handle the case when the list of tribes is empty
+            return np.float32(0.0)  # or any default value you prefer
 
     def _check_episode_completion(self):
-        # Implement your logic to check if the episode should end
-        # Example: End the episode if the tribe's population drops below a threshold
-        return self._tribe.population <= 0
+        # Check if the list of tribes is not empty
+        if self._tribes:
+            # Sum the populations of all tribes
+            total_population = sum(tribe.population for tribe in self._tribes)
+
+            # Determine if the episode is done based on the total population
+            episode_is_done = total_population <= 0
+            return episode_is_done
+        else:
+            # Handle the case when the list of tribes is empty
+            return False  # or any default value you prefer
+

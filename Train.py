@@ -10,7 +10,15 @@ from TribeEnvironment import TribeEnvironment
 from tf_agents.utils import common
 import os
 from tribe import Tribe
+import matplotlib.pyplot as plt
+import signal
+import numpy as np
 
+# Initialize lists to store training information for plotting
+steps = []
+losses = []
+# Define the actions mapping
+actions_mapping = {0: "attack", 1: "collect", 2: "pass"}
 # Create the Tribe environment
 num_actions = 3
 num_features = 3
@@ -20,13 +28,20 @@ environment = TribeEnvironment(tribes=initial_tribe, num_actions=num_actions, nu
 # Wrap the environment in a TF PyEnvironment
 tf_environment = tf_py_environment.TFPyEnvironment(environment)
 
-# Define the Q-network
+# Ensure observation_spec dtype matches Q-network input dtype
+obs_spec = tf_environment.observation_spec()
+obs_spec = tf.TensorSpec(shape=obs_spec.shape, dtype=tf.float32)  # Change dtype to tf.float32
+
+
+# Define the Q-network with fc_layer_params
 fc_layer_params = (100,)
 q_net = q_network.QNetwork(
-    tf_environment.observation_spec(),
-    tf_environment.action_spec(),
+    input_tensor_spec=obs_spec,  # Pass obs_spec here
+    action_spec=tf_environment.action_spec(),
     fc_layer_params=fc_layer_params
 )
+
+
 
 # Define the DQN agent
 optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=1e-3)
@@ -72,25 +87,68 @@ def train_step():
     trajectories, _ = next(iterator)
     return agent.train(experience=trajectories)
 
+# ...
+
 # Define the training loop
 num_iterations = 10000
-for _ in range(num_iterations):
-    # Collect a few steps using the random policy
-    collect_driver.run()
+sample_batch_size = 64  # Define the sample batch size
 
-    # Sample a batch of data from the buffer
-    experience, _ = next(iterator)
+# Set the initial saved_model_path
+saved_model_path = 'C:\\Users\\Alan\\PycharmProjects\\AICast\\models'
 
-    # Train the agent
-    train_loss = train_step()
+# Function to handle KeyboardInterrupt and save the model
+def save_and_exit(signal, frame, saved_model_path):
+    print("Training interrupted. Saving the model...")
+    tf.saved_model.save(agent.policy, saved_model_path)
+    print("Model saved. Exiting.")
+    exit()
 
-    # Print training information
-    if agent.train_step_counter.numpy() % 1000 == 0:
-        print(f"Step: {agent.train_step_counter.numpy()}, Loss: {train_loss.loss.numpy()}")
+# Register the signal handler for KeyboardInterrupt
+signal.signal(signal.SIGINT, lambda signal, frame: save_and_exit(signal, frame, saved_model_path))
 
-# Save the trained model
-saved_model_path = './AICast/models'
+try:
+    for iteration in range(num_iterations):
+        # Collect a few steps using the random policy
+        collect_driver.run()
+
+        # Sample a batch of data from the buffer only if it has enough items
+        if replay_buffer.num_frames().numpy() >= sample_batch_size:
+            experience, _ = next(iterator)
+
+            # Train the agent
+            train_loss = train_step()
+
+            # Print training information
+            if agent.train_step_counter.numpy() % 1000 == 0:
+                print(f"Step: {agent.train_step_counter.numpy()}, Loss: {train_loss.loss.numpy()}")
+
+                # Store training information for plotting
+                steps.append(agent.train_step_counter.numpy())
+                losses.append(train_loss.loss.numpy())
+
+                # Print actions taken during training
+                print("Actions taken:")
+                for step in experience.action:
+                    tribe_0_action = actions_mapping.get(int(step[0]), "unknown")
+                    tribe_1_action = actions_mapping.get(int(step[1]), "unknown")
+
+                    print(f"Tribe 0: {tribe_0_action}, Tribe 1: {tribe_1_action}")
+
+                # Plot the training loss
+                plt.plot(steps, losses, label='Training Loss')
+                plt.xlabel('Training Steps')
+                plt.ylabel('Loss')
+                plt.legend()
+                plt.show()
+
+except KeyboardInterrupt:
+    # Save the model when interrupted
+    save_and_exit(None, None, saved_model_path)
+
+# Save the trained model using tf.saved_model.save
 if not os.path.exists(saved_model_path):
     os.makedirs(saved_model_path)
-agent.save_policy(saved_model_path)
+
+# Save the model
+tf.saved_model.save(agent.policy, saved_model_path)
 
