@@ -12,6 +12,7 @@ class TribeEnvironment(py_environment.PyEnvironment):
         self._tribes = tribes  # Use the correct attribute name (_tribes instead of _tribe)
         self._num_actions = num_actions
         self._num_features = num_features
+        self._current_tribe = None  # Add this line
 
         # Define action and observation specs
         self._action_spec = array_spec.BoundedArraySpec(
@@ -42,8 +43,12 @@ class TribeEnvironment(py_environment.PyEnvironment):
         # Return the initial time step
         self._episode_ended = False
 
-        # Choose a random tribe for the current episode
-        self._current_tribe = np.random.choice(self._tribes)
+        # Shuffle the list of tribes for this episode
+        np.random.shuffle(self._tribes)
+
+        # Initialize the current tribe index for this episode
+        self._current_tribe_index = 0
+        self._current_tribe = self._tribes[self._current_tribe_index]
 
         # Example: Assuming your initial observation is the tribe's population, resources, and happiness
         initial_observation = np.array(
@@ -60,14 +65,14 @@ class TribeEnvironment(py_environment.PyEnvironment):
             # The last episode ended, reset the environment
             return self.reset()
 
-        # Choose a random tribe for the current episode
-        self._current_tribe = np.random.choice(self._tribes)
+        # Use the fixed current tribe for the episode
+        self._current_tribe = self._tribes[0]  # Adjust this based on your preference
 
         # Your step logic here
         # Update the environment state based on the action
         self.perform_ai_action(action)
 
-        # Calculate the reward based on the new state and action
+        # Calculate the reward based on the current tribe's state and action
         reward = self._calculate_reward()
 
         # Check if the episode is done
@@ -100,32 +105,23 @@ class TribeEnvironment(py_environment.PyEnvironment):
         return self._episode_ended
 
     def _calculate_reward(self):
-        # Check if the list of tribes is not empty
-        if self._tribes:
-            # Choose a random tribe from the list (you may need to adjust this based on your logic)
-            current_tribe = np.random.choice(self._tribes)
+        # Use the current tribe for reward calculation
+        current_tribe = self._current_tribe
 
-            # Implement your reward calculation logic based on the tribe's state and action
-            # Example: Reward based on the tribe's happiness
-            reward = current_tribe.happiness / 100.0  # Normalize to a range of [0, 1]
+        # Implement your reward calculation logic based on the tribe's state and action
+        # Example: Reward based on the tribe's happiness
+        reward = current_tribe.happiness / 100.0  # Normalize to a range of [0, 1]
 
-            # Ensure that the reward is of dtype float32
-            reward = np.float32(reward)
-            return reward
-        else:
-            # Handle the case when the list of tribes is empty
-            return np.float32(0.0)  # or any default value you prefer
+        # Ensure that the reward is of dtype float32
+        reward = np.float32(reward)
+        return reward
 
     def _check_episode_completion(self):
-        # Check if the list of tribes is not empty
-        if self._tribes:
-            # Sum the populations of all tribes
-            total_population = sum(tribe.population for tribe in self._tribes)
+        # Sum the populations of all tribes
+        total_population = sum(tribe.population for tribe in self._tribes)
 
-            # Determine if the episode is done based on the total population
-            episode_is_done = total_population <= 0
-            return episode_is_done
-        else:
-            # Handle the case when the list of tribes is empty
-            return False  # or any default value you prefer
+        # Determine if the episode is done based on the total population
+        episode_is_done = total_population <= 0
+        return episode_is_done
+
 

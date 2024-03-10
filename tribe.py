@@ -7,8 +7,8 @@ class Tribe:
     def __init__(self, traits, name):
         self.traits = traits
         self.name = name
-        self.population = 100  # Initial population size
-        self.resources = 500  # Initial resource amount
+        self.population = 10000  # Initial population size
+        self.resources = 50000  # Initial resource amount
         self.turns_without_enough_resources = 0  # Tracks consecutive turns without enough resources
         self.happiness = 100  # Initial happiness value (between 0 and 100)
 
@@ -31,7 +31,8 @@ class Tribe:
             name = f"Tribe {chr(ord('A') + i)}"
             tribe = Tribe(traits, name)
             tribes.append(tribe)
-        Tribe.initialize_tribes(tribes)  # Call the initialize_tribes function within the Tribe class
+            print(f"Initialized {tribe.name} with traits {tribe.traits}")
+
         return tribes
 
     @staticmethod

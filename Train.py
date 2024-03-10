@@ -69,7 +69,7 @@ collect_driver = dynamic_step_driver.DynamicStepDriver(
     tf_environment,
     agent.collect_policy,
     observers=[replay_buffer.add_batch],
-    num_steps=1
+    num_steps=len(initial_tribe)  # Use the number of tribes as the number of steps
 )
 
 # Define the dataset
@@ -119,7 +119,7 @@ try:
             train_loss = train_step()
 
             # Print training information
-            if agent.train_step_counter.numpy() % 1000 == 0:
+            if agent.train_step_counter.numpy() % 100 == 0:
                 print(f"Step: {agent.train_step_counter.numpy()}, Loss: {train_loss.loss.numpy()}")
 
                 # Store training information for plotting
@@ -128,11 +128,22 @@ try:
 
                 # Print actions taken during training
                 print("Actions taken:")
-                for step in experience.action:
-                    tribe_0_action = actions_mapping.get(int(step[0]), "unknown")
-                    tribe_1_action = actions_mapping.get(int(step[1]), "unknown")
+                for i, step in enumerate(experience.action):
+                    for j, tribe_action in enumerate(step):
+                        tribe_name = f"Tribe {chr(ord('A') + j)}"
+                        tribe_action_name = actions_mapping.get(int(tribe_action), "unknown")
 
-                    print(f"Tribe 0: {tribe_0_action}, Tribe 1: {tribe_1_action}")
+                        # Ensure 'j' is within the bounds of the initial_tribe list
+                        if j < len(initial_tribe):
+                            tribe = initial_tribe[j]
+                            print(f"{tribe_name}: {tribe_action_name}")
+                            print(f"{tribe.name} - Stats:")
+                            print(f"Population: {tribe.population}")
+                            print(f"Resources: {tribe.resources}")
+                            print(f"Happiness: {tribe.happiness}")
+                            print()
+                        else:
+                            print(f"Invalid index 'j' for initial_tribe list.")
 
                 # Plot the training loss
                 plt.plot(steps, losses, label='Training Loss')
@@ -140,6 +151,11 @@ try:
                 plt.ylabel('Loss')
                 plt.legend()
                 plt.show()
+
+                # Check if all tribes are depleted
+                if all(tribe.population <= 0 for tribe in initial_tribe):
+                    print("All tribes are depleted. Training complete.")
+                    break  # Terminate training loop
 
 except KeyboardInterrupt:
     # Save the model when interrupted
