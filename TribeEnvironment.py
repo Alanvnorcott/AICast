@@ -1,10 +1,9 @@
-#Env
-
 import numpy as np
 from tf_agents.environments import py_environment
 from tf_agents.trajectories import time_step as ts
 import tensorflow as tf
 from tf_agents.specs import array_spec
+
 class TribeEnvironment(py_environment.PyEnvironment):
     def __init__(self, tribes, num_actions, num_features):
         self._tribes = tribes
@@ -26,15 +25,13 @@ class TribeEnvironment(py_environment.PyEnvironment):
         self._current_tribe_index = 0
         self._current_tribe = self._tribes[self._current_tribe_index]
 
-        initial_observation = np.array(
-            [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
-            dtype=np.float32)
+        initial_observation = self._get_observation()
 
-        initial_time_step = ts.TimeStep(
-            step_type=tf.constant(ts.StepType.FIRST, dtype=tf.int32),
+        initial_time_step = ts.restart(
+            observation=initial_observation,
             reward=tf.constant(0.0, dtype=tf.float32),
             discount=tf.constant(1.0, dtype=tf.float32),
-            observation=tf.constant(initial_observation, dtype=tf.float32)
+            step_type=tf.constant(ts.StepType.FIRST, dtype=tf.int32)
         )
 
         return initial_time_step
@@ -45,32 +42,29 @@ class TribeEnvironment(py_environment.PyEnvironment):
 
         self._current_tribe = self._tribes[0]
 
-        self.perform_ai_action(action)
+        self._perform_ai_action(action)
 
         reward = self._calculate_reward()
         episode_is_done = self._check_episode_completion()
 
         if episode_is_done:
             self._episode_ended = True
-            final_observation = np.array(
-                [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
-                dtype=np.float32)
+            final_observation = self._get_observation()
 
             final_time_step = ts.termination(
-                observation=tf.constant(final_observation, dtype=tf.float32),
+                observation=final_observation,
                 reward=tf.constant(reward, dtype=tf.float32),
+                discount=tf.constant(0.0, dtype=tf.float32),
             )
             return final_time_step
         else:
-            new_observation = np.array(
-                [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
-                dtype=np.float32)
+            new_observation = self._get_observation()
 
             new_time_step = ts.transition(
-                observation=tf.constant(new_observation, dtype=tf.float32),
+                observation=new_observation,
                 reward=tf.constant(reward, dtype=tf.float32),
                 discount=tf.constant(1.0, dtype=tf.float32),
-                step_type=tf.constant(ts.StepType.MID, dtype=tf.int32)  # Add this line
+                step_type=tf.constant(ts.StepType.MID, dtype=tf.int32)
             )
             return new_time_step
 
@@ -86,10 +80,25 @@ class TribeEnvironment(py_environment.PyEnvironment):
     def _calculate_reward(self):
         current_tribe = self._current_tribe
         reward = current_tribe.happiness / 100.0
-        reward = np.float32(reward)
-        return reward
+        return np.float32(reward)
 
     def _check_episode_completion(self):
         total_population = sum(tribe.population for tribe in self._tribes)
-        episode_is_done = total_population <= 0
-        return episode_is_done
+        return total_population <= 0
+
+    def _get_observation(self):
+        observation = np.array(
+            [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
+            dtype=np.float32
+        )
+
+        return ts.transition(
+            observation=observation,
+            reward=tf.constant(0.0, dtype=tf.float32),
+            discount=tf.constant(1.0, dtype=tf.float32),
+            step_type=tf.constant(ts.StepType.MID, dtype=tf.int32)
+        )
+
+    def _perform_ai_action(self, action):
+        # Your logic for AI actions goes here
+        pass
