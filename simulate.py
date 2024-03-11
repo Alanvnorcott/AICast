@@ -3,8 +3,18 @@
 import random
 from tribe import Tribe
 import time
+import tensorflow as tf
 
-def simulate(tribes):
+
+def display_tribe_info(tribes):
+    print("\nCurrent Tribe Information:")
+    for tribe in tribes:
+        print(f"\n{tribe.name} with Traits {tribe.traits}:")
+        print(f"Population: {tribe.population}")
+        print(f"Resources: {tribe.resources}")
+        print(f"Happiness: {tribe.happiness}")
+
+def simulate(tribes, agent):
     generations = 50  # Number of generations to simulate
 
     # Initialize tribes
@@ -16,9 +26,26 @@ def simulate(tribes):
         # Main tribes perform actions, reproduce, and break off
         for i, tribe in enumerate(tribes):
             other_tribe = random.choice(tribes[:i] + tribes[i + 1:]) if len(tribes) > 1 else None
-            tribe.perform_actions(other_tribe)
+
+            # Get the current state of the tribe (you need to implement this)
+            current_state = {
+                'population': tribe.population,
+                'resources': tribe.resources,
+                'happiness': tribe.happiness,
+            }
+
+            # Convert the current state to a format suitable for the agent
+            current_state = tf.convert_to_tensor(current_state, dtype=tf.float32)
+
+            # Use the DQN agent's policy to select an action
+            action_step = agent.policy.action(current_state)
+
+            # Extract the chosen action from the action step
+            ai_decision = action_step.action.numpy()[0]
+
+            # Perform actions using the determined AI decision
+            tribe.perform_actions(other_tribe, ai_decision)
             tribe.reproduce()
-            # tribe.breakoff()
 
         # Interactions between all tribes
         for i in range(len(tribes)):
@@ -36,11 +63,7 @@ def simulate(tribes):
         surviving_tribes = tribes[:2]
 
         # Display tribe information
-        for tribe in surviving_tribes:
-            print(f"\n{tribe.name} with Traits {tribe.traits}:")
-            print(f"Population: {tribe.population}")
-            print(f"Resources: {tribe.resources}")
-            print(f"Happiness: {tribe.happiness}")
+        display_tribe_info(surviving_tribes)
 
         # Check if there are no tribes left
         if len(tribes) == 0:
@@ -53,10 +76,5 @@ def simulate(tribes):
             break
 
         # Introduce a 1-second delay between turns
-        time.sleep(4)
 
-# Create and initialize tribes using the shared function
-initial_tribes = Tribe.create_and_initialize_tribes(4)
 
-# Simulate
-simulate(initial_tribes)

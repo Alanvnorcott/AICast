@@ -75,7 +75,7 @@ class Tribe:
 
         return sub_tribe
 
-    def perform_actions(self, other_tribe, ai_decision):
+    def perform_actions(self, other_tribes, ai_decision):
         # Check if the "attack" key is present in ai_decision
         attack_weight = ai_decision.get("attack", 0.0)
         collect_weight = ai_decision.get("collect", 0.0)
@@ -83,33 +83,37 @@ class Tribe:
 
         action = random.choices(["Attack", "Collect", "Pass"], weights=[attack_weight, collect_weight, pass_weight])[0]
 
-        if other_tribe is not None:  # Add a check for None
-            if action == "Attack":
-                self.attack(other_tribe)
-            elif action == "Collect":
-                self.collect_resources()
-            elif action == "Pass":
-                self.pass_action()
+        for other_tribe in other_tribes:
+            if other_tribe is not None:  # Add a check for None
+                if action == "Attack":
+                    self.attack(other_tribe)
+                elif action == "Collect":
+                    self.collect_resources()
+                elif action == "Pass":
+                    self.pass_action()
 
         # Update happiness based on various factors
+
         if self.population > 0 and self.resources > 0:
-            consumed_resources = self.population * 9
+            consumed_resources = self.population * 3  # Adjusted for a more realistic value
             self.resources -= consumed_resources
-            self.happiness = max(0, min(100, int(self.resources) / (int(self.population) * 3) * 100))
+            happiness_factor = max(0, min(1, self.resources / (
+                        self.population * 2)))  # Adjusted for a more realistic formula
+            self.happiness = int(happiness_factor * 100)
 
         # Check resource consumption and population control
         if self.resources < 0:
             self.resources = 0  # Ensure resources don't go below 0
-            self.population = max(0, int(self.population * 0.5))  # Exponential population decrease
+            self.population = max(0, int(self.population * 0.9))  # Adjusted for a less drastic population decrease
 
         # Additional check for resource consumption and population control
-        if self.resources < self.population * 3:
+        if self.resources < self.population * 2:
             self.turns_without_enough_resources += 1
         else:
             self.turns_without_enough_resources = 0
 
-        if self.turns_without_enough_resources >= 2:
-            self.population = max(0, self.population - 10)  # Perish 10 individuals if not enough resources for 2 turns
+        if self.turns_without_enough_resources >= 3:  # Increased the threshold for more realistic scarcity
+            self.population = max(0, int(self.population * 0.95))  # Adjusted for a less drastic population decrease
 
     def attack(self, other_tribe):
         # Implement attack action

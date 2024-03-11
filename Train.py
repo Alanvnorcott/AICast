@@ -14,6 +14,7 @@ import signal
 import numpy as np
 import random
 from traits import TraitsHandler
+from tribe import Tribe
 
 # Initialize lists to store training information for plotting
 steps = []
@@ -129,10 +130,12 @@ try:
 
             # Print actions taken during training
             print("Actions taken during training:")
-            for step in experience.action:
-                tribe_0_action = actions_mapping.get(int(step[0]), "unknown")
-                tribe_1_action = actions_mapping.get(int(step[1]), "unknown")
-                print(f"Tribe A: {tribe_0_action}, Tribe B: {tribe_1_action}")
+            for turn, step in enumerate(experience.action):
+                print(f"\n----- Turn {turn + 1} -----")
+                for i, tribe_action in enumerate(step):
+                    tribe_name = chr(ord('A') + i)
+                    tribe_action_name = actions_mapping.get(int(tribe_action), "unknown")
+                    print(f"Tribe {tribe_name}: {tribe_action_name}")
 
 
             # Train the agent

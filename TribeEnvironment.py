@@ -32,9 +32,10 @@ class TribeEnvironment(py_environment.PyEnvironment):
         actions_mapping = {0: "attack", 1: "collect", 2: "pass"}  # Map action indices to keys
         chosen_action_key = actions_mapping.get(chosen_action_key, "pass")  # Default to "pass" if not found
 
-        ai_decision = {chosen_action_key: 1.0}  # Replace with actual decision probabilities
-
-        self._current_tribe.perform_actions(other_tribe=None, ai_decision=ai_decision)
+        for tribe in self._tribes:
+            ai_decision = {chosen_action_key: 1.0}  # Replace with actual decision probabilities
+            other_tribes = [t for t in self._tribes if t != tribe]  # Consider all other tribes as potential targets
+            tribe.perform_actions(other_tribes, ai_decision)
 
     def _reset(self):
         # Reset the environment to its initial state
@@ -60,32 +61,33 @@ class TribeEnvironment(py_environment.PyEnvironment):
             # The last episode ended, reset the environment
             return self.reset()
 
-        # Choose a random tribe for the current episode
-        self._current_tribe = np.random.choice(self._tribes)
+        # Iterate over all tribes for the current episode
+        for tribe in self._tribes:
+            self._current_tribe = tribe
 
-        # Your step logic here
-        # Update the environment state based on the action
-        self.perform_ai_action(action)
+            # Your step logic here
+            # Update the environment state based on the action
+            self.perform_ai_action(action)
 
-        # Calculate the reward based on the new state and action
-        reward = self._calculate_reward()
+            # Calculate the reward based on the new state and action
+            reward = self._calculate_reward()
 
-        # Check if the episode is done
-        episode_is_done = self._check_episode_completion()
+            # Check if the episode is done
+            episode_is_done = self._check_episode_completion()
 
-        if episode_is_done:
-            self._episode_ended = True
-            # Example: Assuming your final observation is the tribe's population, resources, and happiness
-            final_observation = np.array(
-                [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
-                dtype=np.float32)
-            return ts.termination(final_observation, reward)
-        else:
-            # Example: Assuming your new observation is the updated tribe's population, resources, and happiness
-            new_observation = np.array(
-                [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
-                dtype=np.float32)
-            return ts.transition(new_observation, reward)
+            if episode_is_done:
+                self._episode_ended = True
+                # Example: Assuming your final observation is the tribe's population, resources, and happiness
+                final_observation = np.array(
+                    [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
+                    dtype=np.float32)
+                return ts.termination(final_observation, reward)
+            else:
+                # Example: Assuming your new observation is the updated tribe's population, resources, and happiness
+                new_observation = np.array(
+                    [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
+                    dtype=np.float32)
+                return ts.transition(new_observation, reward)
 
     def action_spec(self):
         # Return the action spec for the environment
