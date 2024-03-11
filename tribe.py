@@ -2,13 +2,18 @@
 
 import random
 from traits import TraitsHandler
+import numpy as np
+import tensorflow as tf
+from tf_agents.specs import BoundedArraySpec, ArraySpec
+import numpy as np
+
 
 class Tribe:
     def __init__(self, traits, name):
         self.traits = traits
         self.name = name
-        self.population = 10000  # Initial population size
-        self.resources = 50000  # Initial resource amount
+        self.population = 200  # Initial population size
+        self.resources = 600  # Initial resource amount
         self.turns_without_enough_resources = 0  # Tracks consecutive turns without enough resources
         self.happiness = 100  # Initial happiness value (between 0 and 100)
 
@@ -22,6 +27,39 @@ class Tribe:
         self.relationship_score = 5  # Initial relationship score, between 1 and 10
         TraitsHandler.apply_trait_multipliers(self)
 
+    import tensorflow as tf
+    import numpy as np
+    from tf_agents.specs import BoundedArraySpec, ArraySpec
+
+    class Tribe:
+        # ... (your existing code)
+
+        def get_observation(self):
+            # Replace this with your actual logic to obtain the observation
+            # For example, you might want to provide information about the tribe's traits
+            observation = {
+                'step_type': ArraySpec(shape=(), dtype=tf.int32),
+                'reward': ArraySpec(shape=(), dtype=tf.float32),
+                'discount': BoundedArraySpec(shape=(), dtype=tf.float32, minimum=0.0, maximum=1.0),
+                'observation': np.array([
+                    self.population,
+                    self.resources,
+                    self.happiness
+                    # Add other relevant features as needed
+                ], dtype=np.float32)
+            }
+            return observation
+
+        def determine_ai_decision(self, trained_agent):
+            # Replace this with your actual logic for determining AI decisions using the trained_agent
+            action_step = trained_agent.policy.action(self.get_observation())
+
+            # Assuming your action space is discrete, you can extract the action as an integer
+            chosen_action = action_step.action.numpy()[0]
+
+            # Map the integer action to your specific action names
+            action_mapping = {0: "attack", 1: "collect", 2: "pass"}
+            return action_mapping[chosen_action]
     @staticmethod
     def create_and_initialize_tribes(num_tribes):
         traits_list = ["Health Buff", "Damage Buff", "Resourceful", "Aggressive", "Nomadic", "Cooperative", "Cautious"]

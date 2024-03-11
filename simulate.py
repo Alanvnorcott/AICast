@@ -3,8 +3,10 @@
 import random
 from tribe import Tribe
 import time
-
-def simulate(tribes):
+import numpy as np
+from tf_agents.trajectories import time_step as ts
+import tensorflow as tf
+def simulate(tribes, trained_agent):
     generations = 50  # Number of generations to simulate
 
     # Initialize tribes
@@ -16,9 +18,30 @@ def simulate(tribes):
         # Main tribes perform actions, reproduce, and break off
         for i, tribe in enumerate(tribes):
             other_tribe = random.choice(tribes[:i] + tribes[i + 1:]) if len(tribes) > 1 else None
-            tribe.perform_actions(other_tribe)
-            tribe.reproduce()
-            # tribe.breakoff()
+            ai_decision = tribe.determine_ai_decision(trained_agent)
+
+            # Ensure the observation structure matches the time_step_spec
+            observation = np.array([tribe.population, tribe.resources, tribe.happiness], dtype=np.float32)
+            time_step = ts.restart(observation)
+
+            # Ensure the time_step structure matches the time_step_spec
+            time_step_spec = trained_agent.collect_data_spec.time_step_spec
+            time_step = time_step._replace(
+                step_type=tf.constant(ts.StepType.MID, dtype=tf.int32),
+                reward=tf.constant(0.0, dtype=tf.float32),
+                discount=tf.constant(1.0, dtype=tf.float32),
+                observation=tf.constant(observation, dtype=tf.float32)
+            )
+
+            # Adjusting the structure of the time_step observation
+            observation_spec_shape = time_step_spec.observation.shape
+            if observation.shape != observation_spec_shape:
+                observation = np.array([tribe.population, tribe.resources, tribe.happiness], dtype=np.float32)
+                observation = observation.reshape(observation_spec_shape)
+
+            time_step = time_step._replace(observation=tf.constant(observation, dtype=tf.float32))
+
+            tribe.perform_actions(other_tribe, ai_decision, time_step)
 
         # Interactions between all tribes
         for i in range(len(tribes)):
@@ -57,6 +80,3 @@ def simulate(tribes):
 
 # Create and initialize tribes using the shared function
 initial_tribes = Tribe.create_and_initialize_tribes(4)
-
-# Simulate
-simulate(initial_tribes)

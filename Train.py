@@ -13,6 +13,7 @@ from tribe import Tribe
 import matplotlib.pyplot as plt
 import signal
 import numpy as np
+from simulate import simulate
 
 # Initialize lists to store training information for plotting
 steps = []
@@ -22,8 +23,10 @@ actions_mapping = {0: "attack", 1: "collect", 2: "pass"}
 # Create the Tribe environment
 num_actions = 3
 num_features = 3
-initial_tribe = Tribe.create_and_initialize_tribes(4)
-environment = TribeEnvironment(tribes=initial_tribe, num_actions=num_actions, num_features=num_features)
+initial_tribes = Tribe.create_and_initialize_tribes(4)
+environment = TribeEnvironment(tribes=initial_tribes, num_actions=num_actions, num_features=num_features)
+# Initialize a counter for actions
+action_counter = {action: 0 for action in actions_mapping.values()}
 
 # Wrap the environment in a TF PyEnvironment
 tf_environment = tf_py_environment.TFPyEnvironment(environment)
@@ -69,7 +72,7 @@ collect_driver = dynamic_step_driver.DynamicStepDriver(
     tf_environment,
     agent.collect_policy,
     observers=[replay_buffer.add_batch],
-    num_steps=len(initial_tribe)  # Use the number of tribes as the number of steps
+    num_steps=len(initial_tribes)  # Use the number of tribes as the number of steps
 )
 
 # Define the dataset
@@ -87,7 +90,6 @@ def train_step():
     trajectories, _ = next(iterator)
     return agent.train(experience=trajectories)
 
-# ...
 
 # Define the training loop
 num_iterations = 10000
@@ -106,9 +108,21 @@ def save_and_exit(signal, frame, saved_model_path):
 # Register the signal handler for KeyboardInterrupt
 signal.signal(signal.SIGINT, lambda signal, frame: save_and_exit(signal, frame, saved_model_path))
 
+# Function to clip population and happiness values to valid range
+def clip_values(value, min_value, max_value):
+    return max(min(value, max_value), min_value)
+
+
+# Function to check if any tribe's population is zero
+def all_tribes_depleted(tribes):
+    return all(tribe.population <= 0 for tribe in tribes)
+
+
 try:
     for iteration in range(num_iterations):
-        # Collect a few steps using the random policy
+        simulate(initial_tribes, trained_agent=agent)
+
+        ai_decision = agent.policy.action(observations=initial_tribes.get_observation())
         collect_driver.run()
 
         # Sample a batch of data from the buffer only if it has enough items
@@ -132,18 +146,54 @@ try:
                     for j, tribe_action in enumerate(step):
                         tribe_name = f"Tribe {chr(ord('A') + j)}"
                         tribe_action_name = actions_mapping.get(int(tribe_action), "unknown")
+                        action_counter[tribe_action_name] += 1
 
                         # Ensure 'j' is within the bounds of the initial_tribe list
-                        if j < len(initial_tribe):
-                            tribe = initial_tribe[j]
+                        if j < len(initial_tribes):
+                            tribe = initial_tribes[j]
                             print(f"{tribe_name}: {tribe_action_name}")
                             print(f"{tribe.name} - Stats:")
+
+
+
+                            # Update the tribe's action based on the AI decision
+                            if tribe_action_name == "attack":
+                                # Example: Use the AI agent's decision for attack
+                                if ai_decision["attack"] > 0.5:  # Replace 0.5 with your desired threshold
+                                    tribe.attack(tribe.other_tribe)  # Pass the appropriate arguments
+                                else:
+                                    tribe.pass_action()
+                            elif tribe_action_name == "collect":
+                                # Example: Use the AI agent's decision for collect
+                                if ai_decision["collect"] > 0.5:  # Replace 0.5 with your desired threshold
+                                    tribe.collect_resources()
+                                else:
+                                    tribe.pass_action()
+                            elif tribe_action_name == "pass":
+                                # Example: Use the AI agent's decision for pass
+                                if ai_decision["pass"] > 0.5:  # Replace 0.5 with your desired threshold
+                                    tribe.pass_action()
+
+                            # Update the tribe's state and attributes
+                            tribe.population = clip_values(tribe.population, 0, np.inf)
+                            tribe.resources = clip_values(tribe.resources, 0, np.inf)
+                            tribe.happiness = clip_values(tribe.happiness, 0, 100)
+
                             print(f"Population: {tribe.population}")
                             print(f"Resources: {tribe.resources}")
                             print(f"Happiness: {tribe.happiness}")
                             print()
                         else:
                             print(f"Invalid index 'j' for initial_tribe list.")
+
+                # Print tribe statistics after each iteration
+                print("Tribe Statistics:")
+                for tribe in initial_tribes:
+                    print(f"{tribe.name}:")
+                    print(f"Population: {tribe.population}")
+                    print(f"Resources: {tribe.resources}")
+                    print(f"Happiness: {tribe.happiness}")
+                    print()
 
                 # Plot the training loss
                 plt.plot(steps, losses, label='Training Loss')
@@ -153,18 +203,22 @@ try:
                 plt.show()
 
                 # Check if all tribes are depleted
-                if all(tribe.population <= 0 for tribe in initial_tribe):
+                if all_tribes_depleted(initial_tribes):
                     print("All tribes are depleted. Training complete.")
                     break  # Terminate training loop
+
 
 except KeyboardInterrupt:
     # Save the model when interrupted
     save_and_exit(None, None, saved_model_path)
 
+most_taken_action = max(action_counter, key=action_counter.get)
+print(f"Most taken action during training: {most_taken_action} (count: {action_counter[most_taken_action]})")
 # Save the trained model using tf.saved_model.save
 if not os.path.exists(saved_model_path):
     os.makedirs(saved_model_path)
 
 # Save the model
 tf.saved_model.save(agent.policy, saved_model_path)
+
 
