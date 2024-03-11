@@ -9,10 +9,11 @@ from tf_agents.drivers import dynamic_step_driver
 from TribeEnvironment import TribeEnvironment
 from tf_agents.utils import common
 import os
-from tribe import Tribe
 import matplotlib.pyplot as plt
 import signal
 import numpy as np
+import random
+from traits import TraitsHandler
 
 # Initialize lists to store training information for plotting
 steps = []
@@ -89,7 +90,6 @@ def train_step():
 
 # ...
 
-# Define the training loop
 num_iterations = 10000
 sample_batch_size = 64  # Define the sample batch size
 
@@ -103,17 +103,37 @@ def save_and_exit(signal, frame, saved_model_path):
     print("Model saved. Exiting.")
     exit()
 
+# Function to display tribe information during training
+def display_tribe_info(tribes):
+    print("\nCurrent Tribe Information:")
+    for tribe in tribes:
+        print(f"\n{tribe.name} with Traits {tribe.traits}:")
+        print(f"Population: {tribe.population}")
+        print(f"Resources: {tribe.resources}")
+        print(f"Happiness: {tribe.happiness}")
+
 # Register the signal handler for KeyboardInterrupt
 signal.signal(signal.SIGINT, lambda signal, frame: save_and_exit(signal, frame, saved_model_path))
 
 try:
     for iteration in range(num_iterations):
+        # Display tribe information before collecting steps
+        display_tribe_info(tf_environment.pyenv.envs[0]._tribes)
+
         # Collect a few steps using the random policy
         collect_driver.run()
 
         # Sample a batch of data from the buffer only if it has enough items
         if replay_buffer.num_frames().numpy() >= sample_batch_size:
             experience, _ = next(iterator)
+
+            # Print actions taken during training
+            print("Actions taken during training:")
+            for step in experience.action:
+                tribe_0_action = actions_mapping.get(int(step[0]), "unknown")
+                tribe_1_action = actions_mapping.get(int(step[1]), "unknown")
+                print(f"Tribe A: {tribe_0_action}, Tribe B: {tribe_1_action}")
+
 
             # Train the agent
             train_loss = train_step()
@@ -126,13 +146,8 @@ try:
                 steps.append(agent.train_step_counter.numpy())
                 losses.append(train_loss.loss.numpy())
 
-                # Print actions taken during training
-                print("Actions taken:")
-                for step in experience.action:
-                    tribe_0_action = actions_mapping.get(int(step[0]), "unknown")
-                    tribe_1_action = actions_mapping.get(int(step[1]), "unknown")
-
-                    print(f"Tribe 0: {tribe_0_action}, Tribe 1: {tribe_1_action}")
+                # Display tribe information after training
+                display_tribe_info(tf_environment.pyenv.envs[0]._tribes)
 
                 # Plot the training loss
                 plt.plot(steps, losses, label='Training Loss')
@@ -140,6 +155,10 @@ try:
                 plt.ylabel('Loss')
                 plt.legend()
                 plt.show()
+
+            if all(tribe.population == 0 for tribe in tf_environment.pyenv.envs[0]._tribes):
+                print("Training ended as there are no tribes left.")
+                break
 
 except KeyboardInterrupt:
     # Save the model when interrupted

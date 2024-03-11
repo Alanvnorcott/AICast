@@ -7,8 +7,8 @@ class Tribe:
     def __init__(self, traits, name):
         self.traits = traits
         self.name = name
-        self.population = 100  # Initial population size
-        self.resources = 500  # Initial resource amount
+        self.population = 1000  # Initial population size
+        self.resources = 5000  # Initial resource amount
         self.turns_without_enough_resources = 0  # Tracks consecutive turns without enough resources
         self.happiness = 100  # Initial happiness value (between 0 and 100)
 
