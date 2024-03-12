@@ -261,7 +261,7 @@ class TribeEnvironment(py_environment.PyEnvironment):
         if self._current_tribe.resources < int(self._current_tribe.population / 2):
             scarcity_factor = 1.0 - (self._current_tribe.resources / (self._current_tribe.population * 3))
             happiness_loss = int(
-                self._current_tribe.happiness * scarcity_factor * 0.2)  # Adjust the scaling factor as needed
+                self._current_tribe.happiness * scarcity_factor * 0.4)  # Adjust the scaling factor as needed
             original_happiness = self._current_tribe.happiness  # Store original happiness for logging if needed
             new_happiness = self._current_tribe.happiness - happiness_loss
             # Ensure happiness doesn't go below 0
@@ -302,17 +302,6 @@ class TribeEnvironment(py_environment.PyEnvironment):
     def attack(self, other_tribe):
         for tribe in self._tribes:
             tribe.attack(other_tribe)
-
-            # Apply happiness bonus to attacking if the buff is active
-            if tribe._happiness_buff_to_attacking:
-                base_happiness_gain = int(
-                    0.2 * tribe.final_happiness_loss)  # Example: 20% of happiness loss as base gain
-                happiness_buff_bonus = int(
-                    0.1 * tribe.final_happiness_loss)  # Additional 10% bonus if the buff is active
-                self_happiness_gain = min(base_happiness_gain + happiness_buff_bonus, 100)  # Cap at 100
-
-                # Update attacker's happiness
-                tribe.happiness = max(0, min(100, tribe.happiness + self_happiness_gain))
 
     def trade_resources(self, other_tribe):
         for tribe in self._tribes:

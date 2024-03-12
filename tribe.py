@@ -127,10 +127,6 @@ class Tribe:
 
                 self.happiness = int(happiness_factor * 100)
 
-
-
-
-
     def attack(self, other_tribe):
         # Implement attack action
         attack_strength = 10  # Adjust based on traits
@@ -200,8 +196,7 @@ class Tribe:
 
         # Update loser's population and happiness
         other_tribe.population -= final_loser_population_loss
-        final_happiness_loss = int(
-            (final_loser_population_loss / other_tribe.population) * 100) if other_tribe.population > 0 else 0
+        final_happiness_loss = int(1.5 * final_loser_population_loss)
         other_tribe.happiness = max(0, other_tribe.happiness - final_happiness_loss)
 
         # Calculate happiness gain for the attacker
@@ -217,7 +212,6 @@ class Tribe:
         # Ensure the winner has at least two survivors
         remaining_population = max(2, self.population - final_loser_population_loss)
         self.population = remaining_population
-
 
     def collect_resources(self):
         # Constants for realistic resource gain
