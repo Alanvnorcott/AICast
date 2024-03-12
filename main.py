@@ -10,8 +10,10 @@ import time
 def perform_actions(actions):
     for turn, step in enumerate(actions):
         for i, tribe_action in enumerate(step):
-            # Perform the action and update tribe information
-            Train.environment.pyenv.envs[0]._tribes[i].perform_actions(None, {"attack": 0.0, "collect": 1.0, "pass": 0.0})
+            # Check if the tribe still has a population greater than 0 before taking actions
+            if Train.environment.pyenv.envs[0]._tribes[i].population > 0:
+                # Perform the action and update tribe information
+                Train.environment.pyenv.envs[0]._tribes[i].perform_actions(None, {"attack": 0.0, "collect": 1.0, "pass": 0.0})
 
     # Remove tribes with 0 population
     Train.environment.pyenv.envs[0]._tribes = [tribe for tribe in Train.environment.pyenv.envs[0]._tribes if tribe.population > 0]
@@ -31,6 +33,7 @@ def perform_actions(actions):
         return new_tribes
 
     return None
+
 
 
 def print_training_info(iteration, train_loss):
@@ -87,12 +90,12 @@ try:
         # Print tribe information after training
         print("\nTribe information after training:")
 
-        # Plot the training loss
         plot_training_loss()
 
         # Check if there are no tribes left
         if all(tribe.population == 0 for tribe in Train.environment.pyenv.envs[0]._tribes):
-            print("Training ended as there are no tribes left.")
+            print("All tribes are eliminated. Training has ended.")
+            save_model_and_exit()
             break
 
         if new_tribes is not None:

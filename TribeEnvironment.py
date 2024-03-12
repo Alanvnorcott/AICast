@@ -7,25 +7,36 @@ from tf_agents.trajectories import time_step as ts
 from tribe import Tribe, TraitsHandler
 import random
 from utils import convert_state_to_tensor
-def apply_trait_multipliers(tribe):
-    trait_multipliers = {
-        "Health Buff": 0.2,
-        "Damage Buff": 0.2,
-        "Resourceful": 0.2,
-        "Aggressive": 0.2,
-        "Nomadic": 0.1,
-        "Cooperative": 0.1,
-        "Cautious": 0.1
-    }
 
-    for trait in tribe.traits:
-        if trait in trait_multipliers:
-            setattr(tribe, f"{trait.lower().replace(' ', '_')}_multiplier", trait_multipliers[trait])
 
 class TribeEnvironment(py_environment.PyEnvironment):
+    SEASONS = {
+        "Spring": 1.2,
+        "Summer": 1.5,
+        "Fall": 0.8,
+        "Winter": 0.6
+    }
+
+    @staticmethod
+    def apply_trait_multipliers(tribe):
+        trait_multipliers = {
+            "Health Buff": 0.2,
+            "Damage Buff": 0.2,
+            "Resourceful": 0.2,
+            "Aggressive": 0.2,
+            "Nomadic": 0.1,
+            "Cooperative": 0.1,
+            "Cautious": 0.1
+        }
+
+        for trait in tribe.traits:  # Accessing traits through the tribe instance
+            if trait in trait_multipliers:
+                setattr(tribe, f"{trait.lower().replace(' ', '_')}_multiplier", trait_multipliers[trait])
 
     def __init__(self, num_tribes, num_actions, num_features):
         self._tribes = Tribe.create_and_initialize_tribes(num_tribes)
+        for tribe in self._tribes:
+            self.apply_trait_multipliers(tribe)
         self._num_actions = num_actions
         self._num_features = num_features
 
@@ -42,6 +53,9 @@ class TribeEnvironment(py_environment.PyEnvironment):
         self._event_interval = 60
         self.step_counter = 0
         self.max_steps = 200  # Adjust this value according to your needs
+        self._current_season = random.choice(list(self.SEASONS.keys()))
+        print("Starting season: " + self._current_season)
+
 
     def _perform_random_events(self):
         # Increment the timer in each step
@@ -92,6 +106,18 @@ class TribeEnvironment(py_environment.PyEnvironment):
                 tribe.population -= random_population_loss
                 print(f"Random event: {tribe.name} loses {random_population_loss} population.")
 
+    def get_season_multiplier(self):
+        # Define season multipliers
+        season_multipliers = {
+            "Spring": 1.2,
+            "Summer": 1.5,
+            "Fall": 0.8,
+            "Winter": 0.6
+        }
+
+        # Return multiplier based on the current season
+        return season_multipliers[self._current_season]
+
     def perform_ai_action(self, action):
         chosen_action_key = int(np.squeeze(action))
         actions_mapping = {0: "attack", 1: "collect", 2: "trade", 3: "conflict", 4: "form_alliance", 5: "pass"}
@@ -103,24 +129,29 @@ class TribeEnvironment(py_environment.PyEnvironment):
             ai_decision = {chosen_action_key: 1.0}
             other_tribes = [t for t in self._tribes if t != tribe]
             tribe.perform_actions(other_tribes, ai_decision)
-            apply_trait_multipliers(tribe)  # Apply trait multipliers
+            self.apply_trait_multipliers(tribe)  # Apply trait multipliers
+  # Apply trait multipliers
 
     def perform_actions(self, other_tribes, ai_decision):
         for tribe in other_tribes:
             if tribe is not None:
-                tribe.perform_ai_action(ai_decision)
-                if self._perform_random_events():
-                    return
-                # Check AI decision and call corresponding methods
+                tribe_action = None
                 for action, probability in ai_decision.items():
                     if random.random() < probability:
-                        if action == "trade":
-                            self.trade_resources(tribe)
-                        elif action == "conflict":
-                            self.conflict(tribe)
-                        elif action == "form_alliance":
-                            self.form_alliance(tribe)
-                        # Add more conditions for other actions as needed
+                        tribe_action = action
+                        break
+
+                # Perform the chosen action
+                if tribe_action == "collect":
+                    tribe.collect_resources()
+                elif tribe_action == "trade":
+                    self.trade_resources(tribe)
+                elif tribe_action == "conflict":
+                    self.conflict(tribe)
+                elif tribe_action == "form_alliance":
+                    self.form_alliance(tribe)
+                # Add more conditions for other actions as needed
+
     def _reset(self):
         self._episode_ended = False
         self._current_tribe = np.random.choice(self._tribes)
@@ -136,6 +167,7 @@ class TribeEnvironment(py_environment.PyEnvironment):
 
         # Increment the timer in each step
         self._event_timer += 1
+        self._update_season()
 
         # Check if it's time to trigger events
         if self._event_timer >= self._event_interval:
@@ -158,6 +190,18 @@ class TribeEnvironment(py_environment.PyEnvironment):
                         random_population_loss = random.randint(1, min(10, tribe.population))
                         tribe.population -= random_population_loss
                         print(f"Random event: {tribe.name} loses {random_population_loss} population.")
+
+                        # Ensure population doesn't drop below 0
+                        tribe.population = max(0, tribe.population)
+
+                        # If a tribe's population reaches 0, distribute its resources to other tribes
+                        if tribe.population == 0:
+                            print(f"{tribe.name} has been eliminated.")
+                            self._distribute_resources(tribe)
+                            continue
+
+                        # Resources should not instantly drop to 0, instead, they should be affected gradually
+                        # Add logic here to adjust resources gradually instead of instantly to simulate the impact of the event
 
         # Select a tribe randomly to perform actions
         self._current_tribe = np.random.choice(self._tribes)
@@ -186,6 +230,48 @@ class TribeEnvironment(py_environment.PyEnvironment):
 
         # If the current tribe is eliminated, proceed to the next step
         return self._step(action)
+
+        # If the current tribe is eliminated, proceed to the next step
+
+
+    def _update_season(self):
+        # Rotate the seasons by one step
+        seasons = list(self.SEASONS.keys())
+        current_index = seasons.index(self._current_season)
+        next_index = (current_index + 1) % len(seasons)
+        new_season = seasons[next_index]
+
+        if new_season != self._current_season:
+            print(f"Season changed: {self._current_season} -> {new_season}")
+
+            # Adjust resources based on the new season
+            season_multiplier = self.get_season_multiplier()
+            for tribe in self._tribes:
+                tribe.resources *= int(season_multiplier)
+
+            # Print vague implication message
+            implications = {
+                "Spring": "Abundant resources.",
+                "Summer": "Possible drought.",
+                "Fall": "Bountiful harvest, winter coming.",
+                "Winter": "Resources may dwindle."
+            }
+            print(f"Implication: {implications[new_season]}")
+
+            self._current_season = new_season
+            print(f"Resources adjusted for {new_season}.")
+
+    def _distribute_resources(self, eliminated_tribe):
+        remaining_tribes = [tribe for tribe in self._tribes if tribe != eliminated_tribe]
+        total_remaining_population = sum(tribe.population for tribe in remaining_tribes)
+        if total_remaining_population > 0:
+            resource_per_individual = eliminated_tribe.resources / total_remaining_population
+            for tribe in remaining_tribes:
+                tribe.resources += tribe.population * resource_per_individual
+                print(
+                    f"{tribe.name} receives {tribe.population * resource_per_individual} resources from {eliminated_tribe.name}.")
+            eliminated_tribe.resources = 0
+            eliminated_tribe.happiness = 0
 
     def _adjust_happiness_based_on_resources(self):
         # Check if resources are below the amount needed to feed everyone
@@ -269,9 +355,9 @@ class TribeEnvironment(py_environment.PyEnvironment):
             return np.float32(0.0)
 
     def _check_episode_completion(self):
-        if self._tribes:
-            total_population = sum(tribe.population for tribe in self._tribes)
-            episode_is_done = total_population <= 0
-            return episode_is_done
-        else:
-            return False
+        num_remaining_tribes = sum(1 for tribe in self._tribes if tribe.population > 0)
+        episode_is_done = num_remaining_tribes <= 1
+        if episode_is_done:
+            self._episode_ended = True  # Set episode ended flag
+            print("Episode finished. No tribes remain.")
+        return episode_is_done

@@ -4,11 +4,12 @@ import random
 from traits import TraitsHandler
 
 class Tribe:
+
     def __init__(self, traits, name):
         self.traits = traits
         self.name = name
         self.population = 1500  # Initial population size
-        self.resources = 20000  # Initial resource amount
+        self.resources = 3000  # Initial resource amount
         self.turns_without_enough_resources = 0  # Tracks consecutive turns without enough resources
         self.happiness = 80  # Initial happiness value (between 0 and 100)
 
@@ -21,6 +22,9 @@ class Tribe:
 
         self.relationship_score = 5  # Initial relationship score, between 1 and 10
         TraitsHandler.apply_trait_multipliers(self)
+        self.season = None  # Initialize season to None
+
+
 
     @staticmethod
     def create_and_initialize_tribes(num_tribes):
@@ -108,29 +112,30 @@ class Tribe:
                 elif action == "Pass":
                     self.pass_action()
 
-        # Update happiness based on various factors
+            # Update happiness based on various factors
+            if self.population > 0 and self.resources > 0:
+                consumed_resources = self.population * 0.2  # Adjusted for a more realistic value
+                if self.resources >= int(consumed_resources):  # Check if enough resources are available
+                    self.resources -= int(consumed_resources)
+                    divisor = max(1, self.population * 2)
+                    happiness_factor = max(0, min(1, int(self.resources / divisor)))
 
-        if self.population > 0 and self.resources > 0:
-            consumed_resources = self.population * 2  # Adjusted for a more realistic value
-            self.resources -= consumed_resources
-            divisor = max(1, self.population * 2)
-            happiness_factor = max(0, min(1, int(self.resources / divisor)))
+                    self.happiness = int(happiness_factor * 100)
 
-            self.happiness = int(happiness_factor * 100)
+            # Check resource consumption and population control
+            if self.resources < 0:
+                self.resources = 0  # Ensure resources don't go below 0
+                self.population = max(0, int(self.population * 0.95))  # Adjusted for a less drastic population decrease
 
-        # Check resource consumption and population control
-        if self.resources < 0:
-            self.resources = 0  # Ensure resources don't go below 0
-            self.population = max(0, int(self.population * 0.9))  # Adjusted for a less drastic population decrease
+            # Additional check for resource consumption and population control
+            if self.resources < self.population * 2:
+                self.turns_without_enough_resources += 1
+            else:
+                self.turns_without_enough_resources = 0
 
-        # Additional check for resource consumption and population control
-        if self.resources < self.population * 2:
-            self.turns_without_enough_resources += 1
-        else:
-            self.turns_without_enough_resources = 0
-
-        if self.turns_without_enough_resources >= 3:  # Increased the threshold for more realistic scarcity
-            self.population = max(0, int(self.population * 0.95))  # Adjusted for a less drastic population decrease
+            if self.turns_without_enough_resources >= 3:  # Increased the threshold for more realistic scarcity
+                happiness_loss = min(10, self.happiness)  # Adjust the happiness loss as needed
+                self.happiness -= happiness_loss
 
     def attack(self, other_tribe):
         # Implement attack action
@@ -222,15 +227,19 @@ class Tribe:
 
     def collect_resources(self):
         # Constants for realistic resource gain
-        base_resource_gain = 5  # Adjust as needed
+        base_resource_gain = int(random.randint(100, int(250 * .4))) # Adjust as needed
         resource_multiplier = 1.0  # No trait multiplier by default
 
         # Apply resourceful and nomadic trait multipliers
         if "Resourceful" in self.traits:
-            resource_multiplier += 0.2  # Example: 20% increase in resource gain
+            resource_multiplier += int(0.2)  # Example: 20% increase in resource gain
         if "Nomadic" in self.traits and random.randint(1, 4) == 2:
-            resource_multiplier += 0.1  # Example: 10% increase in resource gain
+            resource_multiplier += int(0.1)  # Example: 10% increase in resource gain
             print(f"{self.name} is full of Nomads! Additional resources collected!")
+
+        # Adjust resource gain based on season
+        season_multiplier = self.get_season_multiplier()
+        resource_multiplier *= season_multiplier
 
         # Calculate realistic resource gain
         resource_gain = int(base_resource_gain * resource_multiplier)
@@ -239,12 +248,26 @@ class Tribe:
 
         # Calculate happiness gained from collecting resources
         happiness_gain = int(
-            2 * (resource_gain / base_resource_gain))  # Example: Adjusted for a more realistic happiness gain
+            2.5 * (resource_gain / base_resource_gain))  # Example: Adjusted for a more realistic happiness gain
 
         # Update happiness
         self.happiness = max(0, min(100, self.happiness + happiness_gain))
 
         print(f"{self.name} collects {resource_gain} resources and gains {happiness_gain} happiness.")
+
+    def get_season_multiplier(self):
+        # Define season multipliers
+        season_multipliers = {
+            "Spring": 1.2,
+            "Summer": 1.5,
+            "Fall": 0.8,
+            "Winter": 0.6
+        }
+
+        # Randomly select current season or implement logic to determine the season
+        self.season = random.choice(list(season_multipliers.keys()))
+
+        return season_multipliers[self.season]
 
     def pass_action(self):
         # Implement pass action
