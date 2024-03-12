@@ -8,8 +8,9 @@ from tribe import Tribe, TraitsHandler
 import random
 from utils import convert_state_to_tensor
 
-
+  # Adjust as needed, this is in turns
 class TribeEnvironment(py_environment.PyEnvironment):
+    FIXED_TIME_STEP_INTERVAL = 1
     SEASONS = {
         "Spring": 1.2,
         "Summer": 1.5,
@@ -40,6 +41,7 @@ class TribeEnvironment(py_environment.PyEnvironment):
         self._num_actions = num_actions
         self._num_features = num_features
 
+
         self._action_spec = array_spec.BoundedArraySpec(
             shape=(), dtype=np.int32, minimum=0, maximum=num_actions - 1, name='action')
 
@@ -47,10 +49,10 @@ class TribeEnvironment(py_environment.PyEnvironment):
             shape=(num_features,), dtype=np.float32, name='observation')
 
         self._episode_ended = False
-        self._current_time_step = None
+        self._current_time_step = 0  # Initialize current time step to 0
         self._reset()
         self._event_timer = 0
-        self._event_interval = 60
+        self._event_interval = 10
         self.step_counter = 0
         self.max_steps = 200  # Adjust this value according to your needs
         self._current_season = random.choice(list(self.SEASONS.keys()))
@@ -165,71 +167,52 @@ class TribeEnvironment(py_environment.PyEnvironment):
         if self._episode_ended:
             return self.reset()
 
-        # Increment the timer in each step
-        self._event_timer += 1
-        self._update_season()
+        # Increment the current time step
+        self._current_time_step = (self._current_time_step[0] + 1,)  # Increment the step count
 
-        # Check if it's time to trigger events
-        if self._event_timer >= self._event_interval:
-            self._event_timer = 0  # Reset the timer
+        # Check if it's time to take actions based on the fixed time step interval
+        if self._current_time_step[0] % self.FIXED_TIME_STEP_INTERVAL == 0:
+            # Reward happiness based on population
+            self.reward_happiness_based_on_population()
 
-            # Random event: Make collecting impossible for a bit
-            if random.random() < 0.1:  # Adjust probability as needed
-                print("Random event: Collecting is impossible for 10 turns.")
-                self._disable_collecting()
+            # Iterate through all tribes in succession
+            for tribe in self._tribes:
+                self._current_tribe = tribe
 
-            # Random event: Add a happiness buff to attacking
-            if random.random() < 0.2:  # Adjust probability as needed
-                print("Random event: Happiness buff added to attacking.")
-                self._add_happiness_buff_to_attacking()
+                # Perform actions for all tribes
+                if self._current_tribe.population > 0:
+                    self.perform_ai_action(action)
+                    self._adjust_happiness_based_on_resources()  # Adjust happiness based on resources
+                    self.reproduce()
+                    self.update_relationship_score()  # Update relationship scores
 
-            # Random event: Kill off a random number of population from each tribe
-            if random.random() < 0.15:  # Adjust probability as needed
-                for tribe in self._tribes:
-                    if tribe.population > 0:
-                        random_population_loss = random.randint(1, min(10, tribe.population))
-                        tribe.population -= random_population_loss
-                        print(f"Random event: {tribe.name} loses {random_population_loss} population.")
+                    reward = self._calculate_reward()
+                    episode_is_done = self._check_episode_completion()
 
-                        # Ensure population doesn't drop below 0
-                        tribe.population = max(0, tribe.population)
+                    if episode_is_done:
+                        self._episode_ended = True
+                        final_observation = np.array(
+                            [self._current_tribe.population, self._current_tribe.resources,
+                             self._current_tribe.happiness],
+                            dtype=np.float32)
+                        return ts.termination(final_observation, reward)
+                    else:
+                        new_observation = np.array(
+                            [self._current_tribe.population, self._current_tribe.resources,
+                             self._current_tribe.happiness],
+                            dtype=np.float32)
+                        return ts.transition(new_observation, reward)
 
-                        # If a tribe's population reaches 0, distribute its resources to other tribes
-                        if tribe.population == 0:
-                            print(f"{tribe.name} has been eliminated.")
-                            self._distribute_resources(tribe)
-                            continue
+        # If all tribes are eliminated or the maximum number of steps is reached, terminate the episode
+        if self._current_time_step[0] >= self.max_steps or self._check_episode_completion():
+            final_observation = np.array([0, 0, 0], dtype=np.float32)  # Placeholder observation for terminated state
+            return ts.termination(final_observation, 0.0)
 
-                        # Resources should not instantly drop to 0, instead, they should be affected gradually
-                        # Add logic here to adjust resources gradually instead of instantly to simulate the impact of the event
-
-        # Select a tribe randomly to perform actions
-        self._current_tribe = np.random.choice(self._tribes)
-
-        # Check if the tribe is eliminated before performing actions
-        if self._current_tribe.population > 0:
-            self.perform_ai_action(action)
-            self._adjust_happiness_based_on_resources()  # Adjust happiness based on resources
-            self.reproduce()
-            self.update_relationship_score()  # Update relationship scores
-
-            reward = self._calculate_reward()
-            episode_is_done = self._check_episode_completion()
-
-            if episode_is_done:
-                self._episode_ended = True
-                final_observation = np.array(
-                    [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
-                    dtype=np.float32)
-                return ts.termination(final_observation, reward)
-            else:
-                new_observation = np.array(
-                    [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
-                    dtype=np.float32)
-                return ts.transition(new_observation, reward)
-
-        # If the current tribe is eliminated, proceed to the next step
-        return self._step(action)
+        # If it's not time to take actions, return a transition time step
+        observation = np.array(
+            [self._current_tribe.population, self._current_tribe.resources, self._current_tribe.happiness],
+            dtype=np.float32)
+        return ts.transition(observation, 0.0)
 
         # If the current tribe is eliminated, proceed to the next step
 
@@ -275,16 +258,22 @@ class TribeEnvironment(py_environment.PyEnvironment):
 
     def _adjust_happiness_based_on_resources(self):
         # Check if resources are below the amount needed to feed everyone
-        if self._current_tribe.resources < self._current_tribe.population * 3:
+        if self._current_tribe.resources < int(self._current_tribe.population / 2):
             scarcity_factor = 1.0 - (self._current_tribe.resources / (self._current_tribe.population * 3))
-            happiness_loss = int(self._current_tribe.happiness * scarcity_factor)
+            happiness_loss = int(
+                self._current_tribe.happiness * scarcity_factor * 0.2)  # Adjust the scaling factor as needed
             original_happiness = self._current_tribe.happiness  # Store original happiness for logging if needed
-            self._current_tribe.happiness -= happiness_loss
+            new_happiness = self._current_tribe.happiness - happiness_loss
+            # Ensure happiness doesn't go below 0
+            self._current_tribe.happiness = max(0, new_happiness)
             print(f"{self._current_tribe.name} experiences happiness loss due to resource scarcity: {happiness_loss}")
-            # Adjust happiness exponentially based on scarcity_factor or any other desired formula
-            # Example: self._current_tribe.happiness *= scarcity_factor
             print(f"Original happiness: {original_happiness}, New happiness: {self._current_tribe.happiness}")
 
+            # Ensure happiness doesn't go below 0
+            self._current_tribe.happiness = max(0, new_happiness)
+
+            # Ensure happiness doesn't exceed 100
+            self._current_tribe.happiness = min(100, self._current_tribe.happiness)
     def action_spec(self):
         return self._action_spec
 
@@ -293,11 +282,18 @@ class TribeEnvironment(py_environment.PyEnvironment):
 
     def reproduce(self):
         for tribe in self._tribes:
-            if tribe.population > 2 and tribe.resources > tribe.population * 3:
+            if tribe.population > 2 and tribe.resources >= tribe.population + 50:
                 added_individuals = random.randint(1, 2) * int((tribe.population / 2))
                 tribe.population += added_individuals
                 print(
                     f"{tribe.name} reproduced. Added {added_individuals} individuals. New population: {tribe.population}, Resources: {tribe.resources}")
+
+    def reward_happiness_based_on_population(self):
+        for tribe in self._tribes:
+            if tribe.population > 500:
+                happiness_reward = (
+                                               tribe.population // 1000) * 5  # Reward 10 happiness for every 500 population
+                tribe.happiness += happiness_reward
 
     def update_relationship_score(self):
         for tribe in self._tribes:

@@ -11,7 +11,7 @@ class Tribe:
         self.population = 1500  # Initial population size
         self.resources = 3000  # Initial resource amount
         self.turns_without_enough_resources = 0  # Tracks consecutive turns without enough resources
-        self.happiness = 80  # Initial happiness value (between 0 and 100)
+        self.happiness = 100  # Initial happiness value (between 0 and 100)
 
         self.health_multiplier = 1.0
         self.damage_multiplier = 1.0
@@ -112,30 +112,24 @@ class Tribe:
                 elif action == "Pass":
                     self.pass_action()
 
-            # Update happiness based on various factors
-            if self.population > 0 and self.resources > 0:
-                consumed_resources = self.population * 0.2  # Adjusted for a more realistic value
-                if self.resources >= int(consumed_resources):  # Check if enough resources are available
-                    self.resources -= int(consumed_resources)
-                    divisor = max(1, self.population * 2)
-                    happiness_factor = max(0, min(1, int(self.resources / divisor)))
+        # Update happiness based on various factors
+        if self.population > 0 and self.resources > 0:
+            consumed_resources = self.population * 0.2  # Adjusted for a more realistic value
+            if self.resources >= int(consumed_resources):  # Check if enough resources are available
+                self.resources -= int(consumed_resources)
 
-                    self.happiness = int(happiness_factor * 100)
+                divisor = max(1, self.population * 2)
+                happiness_factor = max(0, min(1, int(self.resources / divisor)))
 
-            # Check resource consumption and population control
-            if self.resources < 0:
-                self.resources = 0  # Ensure resources don't go below 0
-                self.population = max(0, int(self.population * 0.95))  # Adjusted for a less drastic population decrease
+                # Add a happiness boost if resources are at least a third of the population
+                if self.resources >= self.population / 3:
+                    happiness_factor += 0.1  # Adjust the boost factor as needed
 
-            # Additional check for resource consumption and population control
-            if self.resources < self.population * 2:
-                self.turns_without_enough_resources += 1
-            else:
-                self.turns_without_enough_resources = 0
+                self.happiness = int(happiness_factor * 100)
 
-            if self.turns_without_enough_resources >= 3:  # Increased the threshold for more realistic scarcity
-                happiness_loss = min(10, self.happiness)  # Adjust the happiness loss as needed
-                self.happiness -= happiness_loss
+
+
+
 
     def attack(self, other_tribe):
         # Implement attack action
@@ -227,7 +221,9 @@ class Tribe:
 
     def collect_resources(self):
         # Constants for realistic resource gain
-        base_resource_gain = int(random.randint(100, int(250 * .4))) # Adjust as needed
+        base_resource_gain = int(random.randint(100, int(900 * .4))) # Adjust as needed
+        if base_resource_gain >= 500:
+            print(f"{self.name} struck gold!")
         resource_multiplier = 1.0  # No trait multiplier by default
 
         # Apply resourceful and nomadic trait multipliers
@@ -248,7 +244,7 @@ class Tribe:
 
         # Calculate happiness gained from collecting resources
         happiness_gain = int(
-            2.5 * (resource_gain / base_resource_gain))  # Example: Adjusted for a more realistic happiness gain
+            (resource_gain/10)) # Example: Adjusted for a more realistic happiness gain
 
         # Update happiness
         self.happiness = max(0, min(100, self.happiness + happiness_gain))
