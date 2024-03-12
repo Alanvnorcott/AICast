@@ -20,12 +20,13 @@ from tribe import Tribe
 steps = []
 losses = []
 # Define the actions mapping
-actions_mapping = {0: "attack", 1: "collect", 2: "pass"}
+actions_mapping = {0: "attack", 1: "collect", 2: "trade", 3: "conflict", 4: "form_alliance", 5: "pass"}
 # Create the Tribe environment
-num_actions = 3
+num_tribes = 4
+num_actions = 6
 num_features = 3
-initial_tribe = Tribe.create_and_initialize_tribes(4)
-environment = TribeEnvironment(tribes=initial_tribe, num_actions=num_actions, num_features=num_features)
+initial_tribe = Tribe.create_and_initialize_tribes(num_tribes)
+environment = TribeEnvironment(num_tribes=num_tribes, num_actions=num_actions, num_features=num_features)
 
 # Wrap the environment in a TF PyEnvironment
 tf_environment = tf_py_environment.TFPyEnvironment(environment)
@@ -127,16 +128,6 @@ try:
         # Sample a batch of data from the buffer only if it has enough items
         if replay_buffer.num_frames().numpy() >= sample_batch_size:
             experience, _ = next(iterator)
-
-            # Print actions taken during training
-            print("Actions taken during training:")
-            for turn, step in enumerate(experience.action):
-                print(f"\n----- Turn {turn + 1} -----")
-                for i, tribe_action in enumerate(step):
-                    tribe_name = chr(ord('A') + i)
-                    tribe_action_name = actions_mapping.get(int(tribe_action), "unknown")
-                    print(f"Tribe {tribe_name}: {tribe_action_name}")
-
 
             # Train the agent
             train_loss = train_step()

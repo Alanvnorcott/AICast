@@ -7,10 +7,10 @@ class Tribe:
     def __init__(self, traits, name):
         self.traits = traits
         self.name = name
-        self.population = 1000  # Initial population size
-        self.resources = 5000  # Initial resource amount
+        self.population = 1500  # Initial population size
+        self.resources = 20000  # Initial resource amount
         self.turns_without_enough_resources = 0  # Tracks consecutive turns without enough resources
-        self.happiness = 100  # Initial happiness value (between 0 and 100)
+        self.happiness = 80  # Initial happiness value (between 0 and 100)
 
         self.health_multiplier = 1.0
         self.damage_multiplier = 1.0
@@ -26,11 +26,14 @@ class Tribe:
     def create_and_initialize_tribes(num_tribes):
         traits_list = ["Health Buff", "Damage Buff", "Resourceful", "Aggressive", "Nomadic", "Cooperative", "Cautious"]
         tribes = []
+
         for i in range(num_tribes):
             traits = random.sample(traits_list, 2)
-            name = f"Tribe {chr(ord('A') + i)}"
+            random_letter = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+            name = f"Tribe {random_letter}"
             tribe = Tribe(traits, name)
             tribes.append(tribe)
+
         Tribe.initialize_tribes(tribes)  # Call the initialize_tribes function within the Tribe class
         return tribes
 
@@ -76,12 +79,25 @@ class Tribe:
         return sub_tribe
 
     def perform_actions(self, other_tribes, ai_decision):
-        # Check if the "attack" key is present in ai_decision
+        # Check if the keys are present in ai_decision
         attack_weight = ai_decision.get("attack", 0.0)
         collect_weight = ai_decision.get("collect", 0.0)
+        trade_weight = ai_decision.get("trade", 0.0)
+        conflict_weight = ai_decision.get("conflict", 0.0)
+        form_alliance_weight = ai_decision.get("form_alliance", 0.0)
         pass_weight = ai_decision.get("pass", 0.0)
 
-        action = random.choices(["Attack", "Collect", "Pass"], weights=[attack_weight, collect_weight, pass_weight])[0]
+        # Ensure that at least one action has a non-zero weight
+        total_weight = attack_weight + collect_weight + trade_weight + conflict_weight + form_alliance_weight + pass_weight
+        if total_weight == 0.0:
+            # If all weights are zero, set a default weight for "pass"
+            pass_weight = 1.0
+
+        action_choices = ["Attack", "Collect", "Trade", "Conflict", "Form_Alliance", "Pass"]
+        action_weights = [attack_weight, collect_weight, trade_weight, conflict_weight, form_alliance_weight,
+                          pass_weight]
+
+        action = random.choices(action_choices, weights=action_weights)[0]
 
         for other_tribe in other_tribes:
             if other_tribe is not None:  # Add a check for None
@@ -95,10 +111,11 @@ class Tribe:
         # Update happiness based on various factors
 
         if self.population > 0 and self.resources > 0:
-            consumed_resources = self.population * 3  # Adjusted for a more realistic value
+            consumed_resources = self.population * 2  # Adjusted for a more realistic value
             self.resources -= consumed_resources
-            happiness_factor = max(0, min(1, self.resources / (
-                        self.population * 2)))  # Adjusted for a more realistic formula
+            divisor = max(1, self.population * 2)
+            happiness_factor = max(0, min(1, int(self.resources / divisor)))
+
             self.happiness = int(happiness_factor * 100)
 
         # Check resource consumption and population control
@@ -189,39 +206,42 @@ class Tribe:
         other_tribe.happiness = max(0, other_tribe.happiness - final_happiness_loss)
 
         # Calculate happiness gain for the attacker
-        self_happiness_gain = int(0.2 * final_happiness_loss)  # Example: 20% of happiness loss as gain
+        self_happiness_gain = int(0.5 * final_happiness_loss)  # Example: 50% of happiness loss as gain
 
-        # Update attacker's happiness
-        self.happiness = max(0, min(100, self.happiness + self_happiness_gain))
+        # Update attacker's happiness with a big boost
+        self.happiness = min(100, self.happiness + self_happiness_gain + 20)  # Adding a big boost of 20 happiness
 
         print(
             f"{self.name} attacks {other_tribe.name}. {other_tribe.name} loses {final_loser_population_loss} population and {final_happiness_loss} happiness.")
-        print(f"{self.name} gains {self_happiness_gain} happiness as the attacker.")
+        print(f"{self.name} gains {self_happiness_gain + 20} happiness as the attacker.")
 
         # Ensure the winner has at least two survivors
         remaining_population = max(2, self.population - final_loser_population_loss)
         self.population = remaining_population
 
+
     def collect_resources(self):
-        # Implement collect action
-        base_resource_gain = 10  # Base resource gain, adjust as needed
-        resource_gain = base_resource_gain * max(1, int((self.population / 3)))  # Ensure a minimum of 1 resource gain
+        # Constants for realistic resource gain
+        base_resource_gain = 5  # Adjust as needed
+        resource_multiplier = 1.0  # No trait multiplier by default
 
         # Apply resourceful and nomadic trait multipliers
         if "Resourceful" in self.traits:
-            resource_gain *= int(1.2)  # Example: 20% increase in resource gain
-        if "Nomadic" in self.traits:
-            if random.randint(1, 4) == 2:
-                resource_gain *= int(1.1)  # Example: 10% increase in resource gain
-                print(f"{self.name} is full of Nomads! {resource_gain} resources collected!")
+            resource_multiplier += 0.2  # Example: 20% increase in resource gain
+        if "Nomadic" in self.traits and random.randint(1, 4) == 2:
+            resource_multiplier += 0.1  # Example: 10% increase in resource gain
+            print(f"{self.name} is full of Nomads! Additional resources collected!")
+
+        # Calculate realistic resource gain
+        resource_gain = int(base_resource_gain * resource_multiplier)
 
         self.resources += resource_gain
 
         # Calculate happiness gained from collecting resources
-        happiness_gain = int(5 * (resource_gain / base_resource_gain))  # Example: 5% of resource gain as happiness
+        happiness_gain = int(
+            2 * (resource_gain / base_resource_gain))  # Example: Adjusted for a more realistic happiness gain
 
         # Update happiness
-
         self.happiness = max(0, min(100, self.happiness + happiness_gain))
 
         print(f"{self.name} collects {resource_gain} resources and gains {happiness_gain} happiness.")
