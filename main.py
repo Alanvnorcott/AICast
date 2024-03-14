@@ -5,9 +5,20 @@ from simulate import simulate
 import Train
 from Train import agent, save_and_exit, saved_model_path
 import matplotlib.pyplot as plt
+import tensorflow as tf
 
 action_counts = {"attack": 0, "collect": 0, "pass": 0}
 
+def convert_tribe_state_to_tensor(tribe_state):
+    # Convert dictionary values to a list or numpy array
+    tensor_data = [tribe_state['population'], tribe_state['resources'], tribe_state['happiness']]
+    # Convert list to TensorFlow tensor
+    tensor = tf.convert_to_tensor(tensor_data, dtype=tf.float32)
+    return tensor
+
+# Example usage of the function
+tribe_state = {'population': 1500, 'resources': 3000, 'happiness': 100}
+tribe_state_tensor = convert_tribe_state_to_tensor(tribe_state)
 def perform_actions(actions):
     for turn, step in enumerate(actions):
         for i, tribe_action in enumerate(step):

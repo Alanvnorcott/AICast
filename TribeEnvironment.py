@@ -269,11 +269,18 @@ class TribeEnvironment(py_environment.PyEnvironment):
             print(f"{self._current_tribe.name} experiences happiness loss due to resource scarcity: {happiness_loss}")
             print(f"Original happiness: {original_happiness}, New happiness: {self._current_tribe.happiness}")
 
-            # Ensure happiness doesn't go below 0
-            self._current_tribe.happiness = max(0, new_happiness)
-
+        # Check if resources are above the amount needed to satisfy everyone
+        elif self._current_tribe.resources > int(self._current_tribe.population * 2):
+            abundance_factor = (self._current_tribe.resources / (self._current_tribe.population * 3)) - 1.0
+            happiness_gain = int(
+                self._current_tribe.happiness * abundance_factor * 0.4)  # Adjust the scaling factor as needed
+            original_happiness = self._current_tribe.happiness  # Store original happiness for logging if needed
+            new_happiness = self._current_tribe.happiness + happiness_gain
             # Ensure happiness doesn't exceed 100
-            self._current_tribe.happiness = min(100, self._current_tribe.happiness)
+            self._current_tribe.happiness = min(100, new_happiness)
+            print(f"{self._current_tribe.name} experiences happiness gain due to resource abundance: {happiness_gain}")
+            print(f"Original happiness: {original_happiness}, New happiness: {self._current_tribe.happiness}")
+
     def action_spec(self):
         return self._action_spec
 
