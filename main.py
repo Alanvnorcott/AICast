@@ -29,21 +29,13 @@ def perform_actions(actions):
                 # Perform the action and update tribe information
                 Train.environment.pyenv.envs[0]._tribes[i].perform_actions(None, {"attack": 0.2, "collect": 0.6, "pass": 0.2})
 
-    # Remove tribes with 0 population
-    Train.environment.pyenv.envs[0]._tribes = [tribe for tribe in Train.environment.pyenv.envs[0]._tribes if tribe.population > 0]
 
-    # Check if there are no tribes left
+    Train.environment.pyenv.envs[0]._tribes = [tribe for tribe in Train.environment.pyenv.envs[0]._tribes if tribe.population > 0]
     if not Train.environment.pyenv.envs[0]._tribes:
         print("All tribes are dead. Reinitializing new tribes.")
-
-        # Create and initialize a new set of tribes
         new_tribes = create_tribes(4)
         initialize_tribes(new_tribes)
-
-        # Simulate with the new tribes
         simulate(new_tribes, agent)
-
-        # Return the new tribes for the next iteration
         return new_tribes
 
     return None
@@ -54,15 +46,9 @@ def perform_actions(actions):
     # Check if there are no tribes left
     if not Train.environment.pyenv.envs[0]._tribes:
         print("All tribes are dead. Reinitializing new tribes.")
-
-        # Create and initialize a new set of tribes
         new_tribes = create_tribes(4)
         initialize_tribes(new_tribes)
-
-        # Simulate with the new tribes
         simulate(new_tribes, agent)
-
-        # Return the new tribes for the next iteration
         return new_tribes
 
     return None
@@ -114,11 +100,7 @@ def save_model_and_exit():
 
 # Create tribes
 initial_tribes = create_tribes(4)
-
-# Initialize tribes
 initialize_tribes(initial_tribes)
-
-# Simulate and pass the 'agent' object
 simulate(initial_tribes, agent)
 
 # Train
@@ -127,19 +109,12 @@ try:
         # Reset action counts
         action_counts = {"attack": 0, "collect": 0, "pass": 0}
 
-        # Train the agent
+
         train_loss = Train.train_step()
-
         if Train.agent.train_step_counter.numpy() % 10000 == 0:
-            # Print training information
             print_training_info(iteration, train_loss)
-
-        # Print tribe information after training
         print("\nTribe information after training:")
-
         plot_training_and_actions()
-
-        # Check if there are no tribes left
         if all(tribe.population == 0 for tribe in Train.environment.pyenv.envs[0]._tribes):
             print("All tribes are eliminated. Training has ended.")
             save_model_and_exit()
@@ -148,5 +123,4 @@ try:
 
 
 except KeyboardInterrupt:
-    # Save the model when interrupted
     save_model_and_exit()

@@ -161,7 +161,6 @@ class Tribe:
         self.population = remaining_population
 
     def collect_resources(self):
-        # Constants for realistic resource gain
         base_resource_gain = int(random.randint(100, int(900 * .4))) # Adjust as needed
         if base_resource_gain >= 500:
             print(f"{self.name} struck gold!")
@@ -193,7 +192,6 @@ class Tribe:
         print(f"{self.name} collects {resource_gain} resources and gains {happiness_gain} happiness.")
 
     def get_season_multiplier(self):
-        # Define season multipliers
         season_multipliers = {
             "Spring": 1.2,
             "Summer": 1.5,
@@ -263,11 +261,11 @@ class Tribe:
         conflict_strength_self = 20
         conflict_strength_other = 20
         if "Aggressive" in self.traits:
-            conflict_strength_self += 0.2  # Example: 20% increase in conflict strength
+            conflict_strength_self += 0.2
         if "Damage Buff" in self.traits:
-            damage_multiplier = 0.2  # Example: 20% increase in damage
+            damage_multiplier = 0.2
             conflict_strength_self *= (1 + damage_multiplier)
-            instant_kill_chance = 0.1  # Example: 10% chance
+            instant_kill_chance = 0.1
             instant_kill_amount = min(other_tribe.population, int(instant_kill_chance * conflict_strength_self))
             if "Health Buff" in self.traits:
                 mitigation_amount = min(instant_kill_amount, int(0.2 * instant_kill_amount))  # Example: 20% mitigation
